@@ -1,6 +1,5 @@
-export async function onRequestGet({ query, env }) {
+export async function onRequestGet({ request, env }) {
   try {
-    // Simple way to log query parameters without iteration
     console.log('Summary API called');
     
     // Check if KV is properly bound
@@ -9,7 +8,9 @@ export async function onRequestGet({ query, env }) {
       return new Response('KV storage not configured. Please check KV bindings in Cloudflare Pages settings.', {status:500});
     }
 
-    const month = query.get('month'); // YYYY-MM
+    // Get month parameter from URL
+    const url = new URL(request.url);
+    const month = url.searchParams.get('month');
     console.log('Requested month:', month);
     
     if (!month) {
