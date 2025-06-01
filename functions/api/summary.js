@@ -85,7 +85,11 @@ export async function onRequestGet({ request, env }) {
             if (log) {
               res[date] = {
                 open: !!(log.open && log.open.completed && log.open.completed.length === openTaskCount),
-                close: !!(log.close && log.close.completed && log.close.completed.length === closeTaskCount)
+                close: !!(log.close && log.close.completed && log.close.completed.length === closeTaskCount),
+                openSubmitter: log.open ? log.open.by : null,
+                openSubmitTime: log.open ? (log.open.submitTime || '未知时间') : null,
+                closeSubmitter: log.close ? log.close.by : null,
+                closeSubmitTime: log.close ? (log.close.submitTime || '未知时间') : null
               };
             }
           }

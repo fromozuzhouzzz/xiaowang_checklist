@@ -84,6 +84,25 @@
 
     /* -------- Calendar -------- */
     let calendar;
+    
+    // 格式化时间显示
+    function formatTime(isoString) {
+      if (!isoString || isoString === '未知时间') return '未知时间';
+      try {
+        const date = new Date(isoString);
+        return date.toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+      } catch (e) {
+        return '未知时间';
+      }
+    }
+    
     async function loadCalendar() {
       try {
         const month = new Date().toISOString().slice(0,7);
@@ -117,12 +136,64 @@
         
         console.log('获取到的日历数据:', data);
         
-        const events = Object.entries(data).flatMap(([date,val]) => {
-          const ev=[];
-          if (val.open) ev.push({ title:'开✅', date });
-          else ev.push({ title:'开❌', date, color:'red' });
-          if (val.close) ev.push({ title:'关✅', date });
-          else ev.push({ title:'关❌', date, color:'red' });
+        const today = new Date().toISOString().slice(0, 10); // 今天的日期
+        
+        const events = Object.entries(data).flatMap(([date, val]) => {
+          const ev = [];
+          const isPastDate = date < today; // 判断是否为过去日期
+          
+          // 开店记录 - 放在上面
+          if (val.open) {
+            ev.push({ 
+              title: '开✅', 
+              date,
+              extendedProps: {
+                type: 'open',
+                completed: true,
+                submitter: val.openSubmitter || '未知',
+                submitTime: val.openSubmitTime || '未知时间'
+              }
+            });
+          } else if (isPastDate) {
+            // 只有过去的日期没有记录才显示红色
+            ev.push({ 
+              title: '开❌', 
+              date, 
+              color: 'red',
+              textColor: 'white',
+              extendedProps: {
+                type: 'open',
+                completed: false
+              }
+            });
+          }
+          
+          // 关店记录 - 放在下面
+          if (val.close) {
+            ev.push({ 
+              title: '关✅', 
+              date,
+              extendedProps: {
+                type: 'close',
+                completed: true,
+                submitter: val.closeSubmitter || '未知',
+                submitTime: val.closeSubmitTime || '未知时间'
+              }
+            });
+          } else if (isPastDate) {
+            // 只有过去的日期没有记录才显示红色
+            ev.push({ 
+              title: '关❌', 
+              date, 
+              color: 'red',
+              textColor: 'white',
+              extendedProps: {
+                type: 'close',
+                completed: false
+              }
+            });
+          }
+          
           return ev;
         });
         
@@ -133,11 +204,60 @@
             initialView:'dayGridMonth',
             events,
             headerToolbar: {
-              left: 'prev,next today',
+              left: 'prev,next',
               center: 'title',
-              right: 'dayGridMonth'
+              right: 'today'
             },
-            locale: 'zh-cn'
+            locale: 'zh-cn',
+            eventMouseEnter: function(info) {
+              // 只为已完成的记录显示提示
+              if (info.event.extendedProps.completed) {
+                const tooltip = document.createElement('div');
+                tooltip.id = 'event-tooltip';
+                tooltip.style.cssText = `
+                  position: absolute;
+                  background: rgba(0,0,0,0.8);
+                  color: white;
+                  padding: 8px 12px;
+                  border-radius: 4px;
+                  font-size: 12px;
+                  pointer-events: none;
+                  z-index: 9999;
+                  max-width: 200px;
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                `;
+                
+                const type = info.event.extendedProps.type === 'open' ? '开店' : '关店';
+                const submitter = info.event.extendedProps.submitter;
+                const submitTime = info.event.extendedProps.submitTime;
+                
+                tooltip.innerHTML = `
+                  <div><strong>${type}记录</strong></div>
+                  <div>提交人: ${submitter}</div>
+                  <div>提交时间: ${formatTime(submitTime)}</div>
+                `;
+                
+                document.body.appendChild(tooltip);
+                
+                // 跟随鼠标位置
+                const updatePosition = (e) => {
+                  tooltip.style.left = (e.pageX + 10) + 'px';
+                  tooltip.style.top = (e.pageY - 10) + 'px';
+                };
+                
+                info.el.addEventListener('mousemove', updatePosition);
+                info.el._updateTooltipPosition = updatePosition;
+              }
+            },
+            eventMouseLeave: function(info) {
+              const tooltip = document.getElementById('event-tooltip');
+              if (tooltip) {
+                tooltip.remove();
+              }
+              if (info.el._updateTooltipPosition) {
+                info.el.removeEventListener('mousemove', info.el._updateTooltipPosition);
+              }
+            }
           });
           calendar.render();
           console.log('日历已渲染');
