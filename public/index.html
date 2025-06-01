@@ -89,12 +89,32 @@
         const month = new Date().toISOString().slice(0,7);
         console.log('正在加载日历数据，月份:', month);
         
+        console.log('发送API请求...');
         const response = await fetch(`/api/summary?month=${month}`);
+        console.log('API响应状态:', response.status, response.statusText);
+        console.log('API响应头:', Object.fromEntries(response.headers.entries()));
+        
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          console.error('API响应不正常:', response.status);
+          const errorText = await response.text();
+          console.error('错误内容:', errorText);
+          throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
         }
         
-        const data = await response.json();
+        console.log('尝试解析JSON响应...');
+        const rawText = await response.text();
+        console.log('原始响应文本:', rawText);
+        
+        let data;
+        try {
+          data = JSON.parse(rawText);
+          console.log('JSON解析成功:', data);
+        } catch (parseError) {
+          console.error('JSON解析失败:', parseError);
+          console.error('原始文本:', rawText);
+          throw new Error('响应不是有效的JSON格式');
+        }
+        
         console.log('获取到的日历数据:', data);
         
         const events = Object.entries(data).flatMap(([date,val]) => {
@@ -128,6 +148,7 @@
         }
       } catch (error) {
         console.error('加载日历失败:', error);
+        console.error('错误堆栈:', error.stack);
         alert('加载日历失败: ' + error.message);
       }
     }
