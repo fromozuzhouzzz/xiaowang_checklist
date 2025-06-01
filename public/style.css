@@ -1,0 +1,5 @@
+body{font-family:sans-serif;margin:2rem;}
+.buttons button{margin-right:1rem;padding:0.5rem 1rem;font-size:1.1rem;}
+#checklist{margin:1rem 0;}
+#submit-area{margin-top:1rem;}
+#submit-area input{padding:0.4rem;margin-right:0.5rem;} 

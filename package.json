@@ -1,0 +1,12 @@
+{
+  "name": "hotel-checklist",
+  "version": "1.0.0",
+  "description": "酒店開/關店 Checklist 系統",
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+} 

@@ -1,0 +1,267 @@
+# 酒店開／關店 Checklist 系統（Cloudflare KV 免費版）
+
+> **最終版 v4.0 – 2025‑05‑31**
+> 完全使用 Cloudflare Pages + KV 免費層；無帳號；明確「開店 / 關店」按鈕；附 **完整可運行程式碼** 與部署步驟。
+
+
+
+---
+
+## 1. 專案結構
+
+```
+📂 root
+├─ public/
+│  ├─ index.html        # UI 與腳本
+│  ├─ tasks.js          # 開/關店任務配置
+│  └─ style.css         # 簡易 CSS（可換 Tailwind CDN）
+├─ functions/           # Pages Functions (Workers)
+│  ├─ api/
+│  │   ├─ tasks.js      # GET /api/tasks
+│  │   ├─ submit.js     # POST /api/submit
+│  │   └─ summary.js    # GET /api/summary
+├─ wrangler.toml        # 作用域綁定 KV
+└─ package.json         # 僅用於本地預覽，可不用
+```
+
+> 只有 **6 個檔案 + 1 個配置**。直接拖到 GitHub 即可部署。
+
+---
+
+## 2. 前端程式碼（public）
+
+### 2.1 `tasks.js`
+
+```js
+// 可自由調整
+export const OPEN_TASKS = [
+  { id: 1, title: '打開招牌燈' },
+  { id: 2, title: '檢查大門安全' },
+  { id: 3, title: '啟動收銀系統' }
+];
+
+export const CLOSE_TASKS = [
+  { id: 1, title: '關閉招牌燈' },
+  { id: 2, title: '門窗上鎖' },
+  { id: 3, title: '收銀結算備份' }
+];
+```
+
+### 2.2 `index.html`
+
+```html
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>開／關店 Checklist</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- 使用簡單 CDN 版 FullCalendar -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <script type="module" src="tasks.js"></script>
+</head>
+<body>
+  <h1>飯店開／關店 Checklist</h1>
+  <div class="buttons">
+    <button id="btn-open">開店</button>
+    <button id="btn-close">關店</button>
+  </div>
+  <div id="checklist"></div>
+  <div id="submit-area" style="display:none;">
+    <input id="input-name" placeholder="提交人姓名" />
+    <button id="btn-submit">提交</button>
+  </div>
+  <h2>日曆紀錄</h2>
+  <div id="calendar"></div>
+
+  <script type="module">
+    import { OPEN_TASKS, CLOSE_TASKS } from './tasks.js';
+
+    const state = { shift: null, tasks: [] };
+
+    document.getElementById('btn-open').onclick = () => loadShift('open');
+    document.getElementById('btn-close').onclick = () => loadShift('close');
+    document.getElementById('btn-submit').onclick = submit;
+
+    function loadShift(shift) {
+      state.shift = shift;
+      state.tasks = shift === 'open' ? OPEN_TASKS : CLOSE_TASKS;
+      renderChecklist();
+      document.getElementById('submit-area').style.display = 'block';
+    }
+
+    function renderChecklist() {
+      const box = document.getElementById('checklist');
+      box.innerHTML = state.tasks.map(t => `
+        <label><input type="checkbox" value="${t.id}" /> ${t.title}</label><br>
+      `).join('');
+    }
+
+    async function submit() {
+      const name = document.getElementById('input-name').value.trim();
+      if (!name) return alert('請填姓名');
+      const checked = Array.from(document.querySelectorAll('#checklist input:checked')).map(el => Number(el.value));
+      if (checked.length !== state.tasks.length) return alert('仍有項目未勾選');
+
+      const payload = {
+        date: new Date().toISOString().slice(0,10),
+        shift: state.shift,
+        completed: checked,
+        by: name
+      };
+      const res = await fetch('/api/submit', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('已提交');
+        loadCalendar();
+        document.getElementById('submit-area').style.display='none';
+        document.getElementById('checklist').innerHTML='';
+      } else alert('提交失敗');
+    }
+
+    /* -------- Calendar -------- */
+    let calendar;
+    async function loadCalendar() {
+      const month = new Date().toISOString().slice(0,7);
+      const data = await fetch(`/api/summary?month=${month}`).then(r=>r.json());
+      const events = Object.entries(data).flatMap(([date,val]) => {
+        const ev=[];
+        if (val.open) ev.push({ title:'開✅', date });
+        else ev.push({ title:'開❌', date, color:'red' });
+        if (val.close) ev.push({ title:'關✅', date });
+        else ev.push({ title:'關❌', date, color:'red' });
+        return ev;
+      });
+      if (!calendar) {
+        calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+          initialView:'dayGridMonth',
+          events
+        });
+        calendar.render();
+      } else {
+        calendar.removeAllEvents();
+        events.forEach(e=>calendar.addEvent(e));
+      }
+    }
+
+    loadCalendar();
+  </script>
+</body>
+</html>
+```
+
+### 2.3 `style.css`
+
+```css
+body{font-family:sans-serif;margin:2rem;}
+.buttons button{margin-right:1rem;padding:0.5rem 1rem;font-size:1.1rem;}
+#checklist{margin:1rem 0;}
+#submit-area{margin-top:1rem;}
+#submit-area input{padding:0.4rem;margin-right:0.5rem;}
+```
+
+---
+
+## 3. Cloudflare Pages Functions（後端）
+
+> 每個檔案都是獨立 Worker，語法為 CommonJS / ESModule 皆可。以下使用 ESM。
+
+### 3.1 `functions/api/tasks.js`
+
+```js
+export async function onRequestGet({ env, query }) {
+  const shift = query.get('shift');
+  if (!['open','close'].includes(shift)) return new Response('Bad shift', {status:400});
+  const tasksKey = `tasks:${shift}`;
+  let tasks = await env.KV.get(tasksKey, { type:'json' });
+  if (!tasks) {
+    // 首次初始化：從前端 tasks.js 內容複製過來
+    tasks = shift==='open' ? [
+      { id:1,title:'打開招牌燈' },
+      { id:2,title:'檢查大門安全' },
+      { id:3,title:'啟動收銀系統' }
+    ] : [
+      { id:1,title:'關閉招牌燈' },
+      { id:2,title:'門窗上鎖' },
+      { id:3,title:'收銀結算備份' }
+    ];
+    await env.KV.put(tasksKey, JSON.stringify(tasks));
+  }
+  return Response.json(tasks);
+}
+```
+
+### 3.2 `functions/api/submit.js`
+
+```js
+export async function onRequestPost({ request, env }) {
+  const { date, shift, completed, by } = await request.json();
+  if (!date||!shift||!completed||!by) return new Response('Bad', {status:400});
+  const key = `log:${date}`;
+  const log = await env.KV.get(key, {type:'json'}) || { open:null, close:null };
+  log[shift] = { completed, by, ts:Date.now() };
+  await env.KV.put(key, JSON.stringify(log));
+  return Response.json({ok:true});
+}
+```
+
+### 3.3 `functions/api/summary.js`
+
+```js
+export async function onRequestGet({ query, env }) {
+  const month = query.get('month'); // YYYY-MM
+  if (!month) return new Response('Need month', {status:400});
+  const list = await env.KV.list({ prefix:'log:'+month });
+  const res = {};
+  for (const { name } of list.keys) {
+    const date = name.split(':')[1];
+    const log = await env.KV.get(name, {type:'json'});
+    res[date] = {
+      open: log.open && log.open.completed.length===3, // 3 為任務總數，可動態
+      close: log.close && log.close.completed.length===3
+    };
+  }
+  return Response.json(res);
+}
+```
+
+### 3.4 `wrangler.toml`
+
+```toml
+name = "hotel-checklist"
+compatibility_date = "2025-05-31"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "<你的 namespace id>"
+```
+
+---
+
+## 4. Cloudflare 部署步驟（手把手）
+
+1. **註冊 / 登入 Cloudflare** → 選單 Pages。
+2. **Create a Project** → 連接 GitHub → 新增倉庫（推上本專案）。
+3. **Build settings**:
+
+   * Framework = **None**
+   * Build command = `npm run build` (若無打包則留空)
+   * Build output = `public`（Pages 會自動識別 functions 資料夾）
+4. **點擊 Deploy** → 首次部署完成。
+5. 進入 Pages 專案 **Settings → Functions → KV Bindings**：
+
+   * Add binding name `KV`, namespace 選 **Create** → 填寫任意名稱 → Save。
+   * Pages 自動修改 `wrangler.toml` 或你手動填入 id。
+6. **重新部署**（Commit 或按 Retry deployment）。
+7. 打開分配的 `https://<project>.pages.dev`，測試：
+
+   * 點「開店」→ 勾選 3 項 → 填名字 → 提交。
+   * 日曆出現當天「開✅」、「關❌」。
+   * 重複關店步驟，則變為 2 個綠勾。
+
+> **備份**：用 Wrangler CLI `wrangler kv:bulk export <namespace-id> > backup.json`。

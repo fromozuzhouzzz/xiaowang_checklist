@@ -1,0 +1,6 @@
+name = "hotel-checklist"
+compatibility_date = "2025-05-31"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "<你的 namespace id>" 
