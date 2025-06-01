@@ -1,6 +1,11 @@
 export async function onRequestGet({ query, env }) {
   try {
-    console.log('Summary API called with query:', Object.fromEntries(query.entries()));
+    // Safer way to log query parameters
+    const queryParams = {};
+    for (const [key, value] of query) {
+      queryParams[key] = value;
+    }
+    console.log('Summary API called with query:', queryParams);
     
     // Check if KV is properly bound
     if (!env.KV) {
