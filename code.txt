@@ -1,49 +1,49 @@
-# 酒店開／關店 Checklist 系統（Cloudflare KV 免費版）
+# 酒店开/关店 Checklist 系统（Cloudflare KV 免费版）
 
-> **最終版 v4.0 – 2025‑05‑31**
-> 完全使用 Cloudflare Pages + KV 免費層；無帳號；明確「開店 / 關店」按鈕；附 **完整可運行程式碼** 與部署步驟。
+> **最终版 v4.0 – 2025‑05‑31**
+> 完全使用 Cloudflare Pages + KV 免费层；无账号；明确「开店 / 关店」按钮；附 **完整可运行程序代码** 与部署步骤。
 
 
 
 ---
 
-## 1. 專案結構
+## 1. 项目结构
 
 ```
 📂 root
 ├─ public/
-│  ├─ index.html        # UI 與腳本
-│  ├─ tasks.js          # 開/關店任務配置
-│  └─ style.css         # 簡易 CSS（可換 Tailwind CDN）
+│  ├─ index.html        # UI 与脚本
+│  ├─ tasks.js          # 开/关店任务配置
+│  └─ style.css         # 简易 CSS（可换 Tailwind CDN）
 ├─ functions/           # Pages Functions (Workers)
 │  ├─ api/
 │  │   ├─ tasks.js      # GET /api/tasks
 │  │   ├─ submit.js     # POST /api/submit
 │  │   └─ summary.js    # GET /api/summary
-├─ wrangler.toml        # 作用域綁定 KV
-└─ package.json         # 僅用於本地預覽，可不用
+├─ wrangler.toml        # 作用域绑定 KV
+└─ package.json         # 仅用于本地预览，可不用
 ```
 
-> 只有 **6 個檔案 + 1 個配置**。直接拖到 GitHub 即可部署。
+> 只有 **6 个文件 + 1 个配置**。直接拖到 GitHub 即可部署。
 
 ---
 
-## 2. 前端程式碼（public）
+## 2. 前端程序代码（public）
 
 ### 2.1 `tasks.js`
 
 ```js
-// 可自由調整
+// 可自由调整
 export const OPEN_TASKS = [
-  { id: 1, title: '打開招牌燈' },
-  { id: 2, title: '檢查大門安全' },
-  { id: 3, title: '啟動收銀系統' }
+  { id: 1, title: '打开招牌灯' },
+  { id: 2, title: '检查大门安全' },
+  { id: 3, title: '启动收银系统' }
 ];
 
 export const CLOSE_TASKS = [
-  { id: 1, title: '關閉招牌燈' },
-  { id: 2, title: '門窗上鎖' },
-  { id: 3, title: '收銀結算備份' }
+  { id: 1, title: '关闭招牌灯' },
+  { id: 2, title: '门窗上锁' },
+  { id: 3, title: '收银结算备份' }
 ];
 ```
 
@@ -51,29 +51,29 @@ export const CLOSE_TASKS = [
 
 ```html
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hans">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>開／關店 Checklist</title>
+  <title>开/关店 Checklist</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- 使用簡單 CDN 版 FullCalendar -->
+  <!-- 使用简单 CDN 版 FullCalendar -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
   <script type="module" src="tasks.js"></script>
 </head>
 <body>
-  <h1>飯店開／關店 Checklist</h1>
+  <h1>饭店开/关店 Checklist</h1>
   <div class="buttons">
-    <button id="btn-open">開店</button>
-    <button id="btn-close">關店</button>
+    <button id="btn-open">开店</button>
+    <button id="btn-close">关店</button>
   </div>
   <div id="checklist"></div>
   <div id="submit-area" style="display:none;">
     <input id="input-name" placeholder="提交人姓名" />
     <button id="btn-submit">提交</button>
   </div>
-  <h2>日曆紀錄</h2>
+  <h2>日历记录</h2>
   <div id="calendar"></div>
 
   <script type="module">
@@ -101,9 +101,9 @@ export const CLOSE_TASKS = [
 
     async function submit() {
       const name = document.getElementById('input-name').value.trim();
-      if (!name) return alert('請填姓名');
+      if (!name) return alert('请填姓名');
       const checked = Array.from(document.querySelectorAll('#checklist input:checked')).map(el => Number(el.value));
-      if (checked.length !== state.tasks.length) return alert('仍有項目未勾選');
+      if (checked.length !== state.tasks.length) return alert('仍有项目未勾选');
 
       const payload = {
         date: new Date().toISOString().slice(0,10),
@@ -121,7 +121,7 @@ export const CLOSE_TASKS = [
         loadCalendar();
         document.getElementById('submit-area').style.display='none';
         document.getElementById('checklist').innerHTML='';
-      } else alert('提交失敗');
+      } else alert('提交失败');
     }
 
     /* -------- Calendar -------- */
@@ -131,10 +131,10 @@ export const CLOSE_TASKS = [
       const data = await fetch(`/api/summary?month=${month}`).then(r=>r.json());
       const events = Object.entries(data).flatMap(([date,val]) => {
         const ev=[];
-        if (val.open) ev.push({ title:'開✅', date });
-        else ev.push({ title:'開❌', date, color:'red' });
-        if (val.close) ev.push({ title:'關✅', date });
-        else ev.push({ title:'關❌', date, color:'red' });
+        if (val.open) ev.push({ title:'开✅', date });
+        else ev.push({ title:'开❌', date, color:'red' });
+        if (val.close) ev.push({ title:'关✅', date });
+        else ev.push({ title:'关❌', date, color:'red' });
         return ev;
       });
       if (!calendar) {
@@ -167,9 +167,9 @@ body{font-family:sans-serif;margin:2rem;}
 
 ---
 
-## 3. Cloudflare Pages Functions（後端）
+## 3. Cloudflare Pages Functions（后端）
 
-> 每個檔案都是獨立 Worker，語法為 CommonJS / ESModule 皆可。以下使用 ESM。
+> 每个文件都是独立 Worker，语法为 CommonJS / ESModule 皆可。以下使用 ESM。
 
 ### 3.1 `functions/api/tasks.js`
 
@@ -180,15 +180,15 @@ export async function onRequestGet({ env, query }) {
   const tasksKey = `tasks:${shift}`;
   let tasks = await env.KV.get(tasksKey, { type:'json' });
   if (!tasks) {
-    // 首次初始化：從前端 tasks.js 內容複製過來
+    // 首次初始化：从前端 tasks.js 内容复制过来
     tasks = shift==='open' ? [
-      { id:1,title:'打開招牌燈' },
-      { id:2,title:'檢查大門安全' },
-      { id:3,title:'啟動收銀系統' }
+      { id:1,title:'打开招牌灯' },
+      { id:2,title:'检查大门安全' },
+      { id:3,title:'启动收银系统' }
     ] : [
-      { id:1,title:'關閉招牌燈' },
-      { id:2,title:'門窗上鎖' },
-      { id:3,title:'收銀結算備份' }
+      { id:1,title:'关闭招牌灯' },
+      { id:2,title:'门窗上锁' },
+      { id:3,title:'收银结算备份' }
     ];
     await env.KV.put(tasksKey, JSON.stringify(tasks));
   }
@@ -243,7 +243,7 @@ id = "<你的 namespace id>"
 
 ---
 
-## 4. Cloudflare 部署步驟（手把手）
+## 4. Cloudflare 部署步骤（手把手）
 
 1. **註冊 / 登入 Cloudflare** → 選單 Pages。
 2. **Create a Project** → 連接 GitHub → 新增倉庫（推上本專案）。

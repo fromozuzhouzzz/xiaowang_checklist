@@ -1,27 +1,27 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hans">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>開／關店 Checklist</title>
+  <title>开/关店 Checklist</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- 使用簡單 CDN 版 FullCalendar -->
+  <!-- 使用简单 CDN 版 FullCalendar -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
   <script type="module" src="tasks.js"></script>
 </head>
 <body>
-  <h1>飯店開／關店 Checklist</h1>
+  <h1>小汪有料开店/关店工作流程</h1>
   <div class="buttons">
-    <button id="btn-open">開店</button>
-    <button id="btn-close">關店</button>
+    <button id="btn-open">开店</button>
+    <button id="btn-close">关店</button>
   </div>
   <div id="checklist"></div>
   <div id="submit-area" style="display:none;">
     <input id="input-name" placeholder="提交人姓名" />
     <button id="btn-submit">提交</button>
   </div>
-  <h2>日曆紀錄</h2>
+  <h2>日历记录</h2>
   <div id="calendar"></div>
 
   <script type="module">
@@ -49,9 +49,9 @@
 
     async function submit() {
       const name = document.getElementById('input-name').value.trim();
-      if (!name) return alert('請填姓名');
+      if (!name) return alert('请填姓名');
       const checked = Array.from(document.querySelectorAll('#checklist input:checked')).map(el => Number(el.value));
-      if (checked.length !== state.tasks.length) return alert('仍有項目未勾選');
+      if (checked.length !== state.tasks.length) return alert('仍有项目未勾选');
 
       const payload = {
         date: new Date().toISOString().slice(0,10),
@@ -59,45 +59,83 @@
         completed: checked,
         by: name
       };
-      const res = await fetch('/api/submit', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        alert('已提交');
-        loadCalendar();
-        document.getElementById('submit-area').style.display='none';
-        document.getElementById('checklist').innerHTML='';
-      } else alert('提交失敗');
+      
+      try {
+        const res = await fetch('/api/submit', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          alert('已提交');
+          loadCalendar();
+          document.getElementById('submit-area').style.display='none';
+          document.getElementById('checklist').innerHTML='';
+          document.getElementById('input-name').value = '';
+        } else {
+          const errorText = await res.text();
+          alert('提交失败: ' + errorText);
+        }
+      } catch (error) {
+        console.error('提交错误:', error);
+        alert('提交失败，请检查网络连接');
+      }
     }
 
     /* -------- Calendar -------- */
     let calendar;
     async function loadCalendar() {
-      const month = new Date().toISOString().slice(0,7);
-      const data = await fetch(`/api/summary?month=${month}`).then(r=>r.json());
-      const events = Object.entries(data).flatMap(([date,val]) => {
-        const ev=[];
-        if (val.open) ev.push({ title:'開✅', date });
-        else ev.push({ title:'開❌', date, color:'red' });
-        if (val.close) ev.push({ title:'關✅', date });
-        else ev.push({ title:'關❌', date, color:'red' });
-        return ev;
-      });
-      if (!calendar) {
-        calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-          initialView:'dayGridMonth',
-          events
+      try {
+        const month = new Date().toISOString().slice(0,7);
+        console.log('正在加载日历数据，月份:', month);
+        
+        const response = await fetch(`/api/summary?month=${month}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('获取到的日历数据:', data);
+        
+        const events = Object.entries(data).flatMap(([date,val]) => {
+          const ev=[];
+          if (val.open) ev.push({ title:'开✅', date });
+          else ev.push({ title:'开❌', date, color:'red' });
+          if (val.close) ev.push({ title:'关✅', date });
+          else ev.push({ title:'关❌', date, color:'red' });
+          return ev;
         });
-        calendar.render();
-      } else {
-        calendar.removeAllEvents();
-        events.forEach(e=>calendar.addEvent(e));
+        
+        console.log('生成的日历事件:', events);
+        
+        if (!calendar) {
+          calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+            initialView:'dayGridMonth',
+            events,
+            headerToolbar: {
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth'
+            },
+            locale: 'zh-cn'
+          });
+          calendar.render();
+          console.log('日历已渲染');
+        } else {
+          calendar.removeAllEvents();
+          events.forEach(e=>calendar.addEvent(e));
+          console.log('日历事件已更新');
+        }
+      } catch (error) {
+        console.error('加载日历失败:', error);
+        alert('加载日历失败: ' + error.message);
       }
     }
 
-    loadCalendar();
+    // 页面加载完成后初始化日历
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCalendar();
+    });
   </script>
 </body>
 </html> 

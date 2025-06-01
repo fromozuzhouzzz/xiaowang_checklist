@@ -4,15 +4,15 @@ export async function onRequestGet({ env, query }) {
   const tasksKey = `tasks:${shift}`;
   let tasks = await env.KV.get(tasksKey, { type:'json' });
   if (!tasks) {
-    // 首次初始化：從前端 tasks.js 內容複製過來
+    // 首次初始化：从前端 tasks.js 内容复制过来
     tasks = shift==='open' ? [
-      { id:1,title:'打開招牌燈' },
-      { id:2,title:'檢查大門安全' },
-      { id:3,title:'啟動收銀系統' }
+      { id:1,title:'打开招牌灯' },
+      { id:2,title:'检查大门安全' },
+      { id:3,title:'启动收银系统' }
     ] : [
-      { id:1,title:'關閉招牌燈' },
-      { id:2,title:'門窗上鎖' },
-      { id:3,title:'收銀結算備份' }
+      { id:1,title:'关闭招牌灯' },
+      { id:2,title:'门窗上锁' },
+      { id:3,title:'收银结算备份' }
     ];
     await env.KV.put(tasksKey, JSON.stringify(tasks));
   }

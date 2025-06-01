@@ -1,12 +1,12 @@
-// 可自由調整
+// 可自由调整
 export const OPEN_TASKS = [
-  { id: 1, title: '打開招牌燈' },
-  { id: 2, title: '檢查大門安全' },
-  { id: 3, title: '啟動收銀系統' }
+  { id: 1, title: '打开招牌灯' },
+  { id: 2, title: '检查大门安全' },
+  { id: 3, title: '启动收银系统' }
 ];
 
 export const CLOSE_TASKS = [
-  { id: 1, title: '關閉招牌燈' },
-  { id: 2, title: '門窗上鎖' },
-  { id: 3, title: '收銀結算備份' }
+  { id: 1, title: '关闭招牌灯' },
+  { id: 2, title: '门窗上锁' },
+  { id: 3, title: '收银结算备份' }
 ]; 
