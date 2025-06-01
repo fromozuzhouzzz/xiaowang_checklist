@@ -1,7 +1,4 @@
 name = "xiaowang-checklist"
 compatibility_date = "2025-05-31"
 
-[[kv_namespaces]]
-binding = "KV"
-id = "82e52506240d44fc9b475e90a4a06280" 
 pages_build_output_dir = "public" 
