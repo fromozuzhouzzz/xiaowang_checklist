@@ -1,7 +1,17 @@
 export async function onRequestGet({ query, env }) {
   try {
+    // Check if KV is properly bound
+    if (!env.KV) {
+      return new Response('KV storage not configured. Please check KV bindings in Cloudflare Pages settings.', {status:500});
+    }
+
     const month = query.get('month'); // YYYY-MM
-    if (!month) return new Response('Need month', {status:400});
+    if (!month) return new Response('Need month parameter', {status:400});
+    
+    // Validate month format
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      return new Response('Invalid month format. Use YYYY-MM', {status:400});
+    }
     
     // Get task counts dynamically
     let openTaskCount = 3;
@@ -10,8 +20,8 @@ export async function onRequestGet({ query, env }) {
     try {
       const openTasks = await env.KV.get('tasks:open', { type:'json' });
       const closeTasks = await env.KV.get('tasks:close', { type:'json' });
-      if (openTasks) openTaskCount = openTasks.length;
-      if (closeTasks) closeTaskCount = closeTasks.length;
+      if (openTasks && Array.isArray(openTasks)) openTaskCount = openTasks.length;
+      if (closeTasks && Array.isArray(closeTasks)) closeTaskCount = closeTasks.length;
     } catch (e) {
       console.log('Failed to get task counts, using default:', e);
     }
@@ -22,6 +32,12 @@ export async function onRequestGet({ query, env }) {
     
     // Generate data structure for each day of the month
     const [year, monthNum] = month.split('-').map(Number);
+    
+    // Validate year and month
+    if (year < 2020 || year > 2050 || monthNum < 1 || monthNum > 12) {
+      return new Response('Invalid year or month', {status:400});
+    }
+    
     const daysInMonth = new Date(year, monthNum, 0).getDate();
     
     // Initialize all dates for the month
@@ -34,18 +50,22 @@ export async function onRequestGet({ query, env }) {
     }
     
     // Update dates with records
-    for (const { name } of list.keys) {
-      try {
-        const date = name.split(':')[1];
-        const log = await env.KV.get(name, {type:'json'});
-        if (log && res[date]) {
-          res[date] = {
-            open: log.open && log.open.completed && log.open.completed.length === openTaskCount,
-            close: log.close && log.close.completed && log.close.completed.length === closeTaskCount
-          };
+    if (list.keys && list.keys.length > 0) {
+      for (const { name } of list.keys) {
+        try {
+          const date = name.split(':')[1];
+          if (res[date]) {
+            const log = await env.KV.get(name, {type:'json'});
+            if (log) {
+              res[date] = {
+                open: !!(log.open && log.open.completed && log.open.completed.length === openTaskCount),
+                close: !!(log.close && log.close.completed && log.close.completed.length === closeTaskCount)
+              };
+            }
+          }
+        } catch (e) {
+          console.log('Failed to process record:', name, e);
         }
-      } catch (e) {
-        console.log('Failed to process record:', name, e);
       }
     }
     

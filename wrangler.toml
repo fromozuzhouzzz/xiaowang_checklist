@@ -1,6 +1,3 @@
-name = "hotel-checklist"
+name = "xiaowang-checklist"
 compatibility_date = "2025-05-31"
-
-[[kv_namespaces]]
-binding = "KV"
-id = "<721cb349e36145a19b82b6bf629010f9>" 
+pages_build_output_dir = "public" 
