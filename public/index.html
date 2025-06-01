@@ -4,25 +4,67 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>开/关店 Checklist</title>
-  <link rel="stylesheet" href="style.css" />
-  <!-- 使用简单 CDN 版 FullCalendar -->
+  
+  <!-- Material Design 3 -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  
+  <!-- FullCalendar -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  
+  <link rel="stylesheet" href="style.css" />
   <script type="module" src="tasks.js"></script>
 </head>
 <body>
-  <h1>小汪有料开店/关店工作流程</h1>
-  <div class="buttons">
-    <button id="btn-open">开店</button>
-    <button id="btn-close">关店</button>
+  <div class="app-container">
+    <!-- App Bar -->
+    <header class="app-bar">
+      <span class="material-icons">store</span>
+      <h1>小汪有料开店/关店工作流程</h1>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Action Cards -->
+      <div class="action-section">
+        <div class="action-card" id="btn-open">
+          <span class="material-icons">wb_sunny</span>
+          <h3>开店</h3>
+          <p>开始一天的工作</p>
+        </div>
+        <div class="action-card" id="btn-close">
+          <span class="material-icons">bedtime</span>
+          <h3>关店</h3>
+          <p>结束一天的工作</p>
+        </div>
+      </div>
+
+      <!-- Checklist -->
+      <div id="checklist-container" class="surface" style="display:none;">
+        <h2>工作清单</h2>
+        <div id="checklist"></div>
+        <div id="submit-area">
+          <div class="input-group">
+            <input id="input-name" placeholder="提交人姓名" class="text-field" />
+            <button id="btn-submit" class="primary-button">
+              <span class="material-icons">check</span>
+              提交
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Calendar -->
+      <div class="calendar-section surface">
+        <h2>
+          <span class="material-icons">calendar_month</span>
+          日历记录
+        </h2>
+        <div id="calendar"></div>
+      </div>
+    </main>
   </div>
-  <div id="checklist"></div>
-  <div id="submit-area" style="display:none;">
-    <input id="input-name" placeholder="提交人姓名" />
-    <button id="btn-submit">提交</button>
-  </div>
-  <h2>日历记录</h2>
-  <div id="calendar"></div>
 
   <script type="module">
     import { OPEN_TASKS, CLOSE_TASKS } from './tasks.js';
@@ -37,21 +79,32 @@
       state.shift = shift;
       state.tasks = shift === 'open' ? OPEN_TASKS : CLOSE_TASKS;
       renderChecklist();
-      document.getElementById('submit-area').style.display = 'block';
+      document.getElementById('checklist-container').style.display = 'block';
+      document.getElementById('checklist-container').scrollIntoView({ behavior: 'smooth' });
     }
 
     function renderChecklist() {
       const box = document.getElementById('checklist');
       box.innerHTML = state.tasks.map(t => `
-        <label><input type="checkbox" value="${t.id}" /> ${t.title}</label><br>
+        <label class="checkbox-item">
+          <input type="checkbox" value="${t.id}" />
+          <span class="checkmark"></span>
+          <span class="checkbox-text">${t.title}</span>
+        </label>
       `).join('');
     }
 
     async function submit() {
       const name = document.getElementById('input-name').value.trim();
-      if (!name) return alert('请填姓名');
+      if (!name) {
+        showSnackbar('请填写提交人姓名', 'warning');
+        return;
+      }
       const checked = Array.from(document.querySelectorAll('#checklist input:checked')).map(el => Number(el.value));
-      if (checked.length !== state.tasks.length) return alert('仍有项目未勾选');
+      if (checked.length !== state.tasks.length) {
+        showSnackbar('仍有项目未勾选', 'warning');
+        return;
+      }
 
       const payload = {
         date: new Date().toISOString().slice(0,10),
@@ -67,19 +120,31 @@
           body: JSON.stringify(payload)
         });
         if (res.ok) {
-          alert('已提交');
+          showSnackbar('提交成功！', 'success');
           loadCalendar();
-          document.getElementById('submit-area').style.display='none';
-          document.getElementById('checklist').innerHTML='';
+          document.getElementById('checklist-container').style.display='none';
           document.getElementById('input-name').value = '';
         } else {
           const errorText = await res.text();
-          alert('提交失败: ' + errorText);
+          showSnackbar('提交失败: ' + errorText, 'error');
         }
       } catch (error) {
         console.error('提交错误:', error);
-        alert('提交失败，请检查网络连接');
+        showSnackbar('网络错误，请重试', 'error');
       }
+    }
+
+    function showSnackbar(message, type = 'info') {
+      const snackbar = document.createElement('div');
+      snackbar.className = `snackbar snackbar-${type}`;
+      snackbar.textContent = message;
+      document.body.appendChild(snackbar);
+      
+      setTimeout(() => snackbar.classList.add('show'), 100);
+      setTimeout(() => {
+        snackbar.classList.remove('show');
+        setTimeout(() => snackbar.remove(), 300);
+      }, 3000);
     }
 
     /* -------- Calendar -------- */
@@ -108,45 +173,28 @@
         const month = new Date().toISOString().slice(0,7);
         console.log('正在加载日历数据，月份:', month);
         
-        console.log('发送API请求...');
         const response = await fetch(`/api/summary?month=${month}`);
-        console.log('API响应状态:', response.status, response.statusText);
-        console.log('API响应头:', Object.fromEntries(response.headers.entries()));
-        
         if (!response.ok) {
-          console.error('API响应不正常:', response.status);
-          const errorText = await response.text();
-          console.error('错误内容:', errorText);
-          throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        console.log('尝试解析JSON响应...');
-        const rawText = await response.text();
-        console.log('原始响应文本:', rawText);
-        
-        let data;
-        try {
-          data = JSON.parse(rawText);
-          console.log('JSON解析成功:', data);
-        } catch (parseError) {
-          console.error('JSON解析失败:', parseError);
-          console.error('原始文本:', rawText);
-          throw new Error('响应不是有效的JSON格式');
-        }
-        
+        const data = await response.json();
         console.log('获取到的日历数据:', data);
         
-        const today = new Date().toISOString().slice(0, 10); // 今天的日期
+        const today = new Date().toISOString().slice(0, 10);
         
         const events = Object.entries(data).flatMap(([date, val]) => {
           const ev = [];
-          const isPastDate = date < today; // 判断是否为过去日期
+          const isPastDate = date < today;
           
-          // 开店记录 - 放在上面
+          // 开店记录 - order: 1 确保在上面
           if (val.open) {
             ev.push({ 
               title: '开✅', 
               date,
+              order: 1,
+              backgroundColor: '#4CAF50',
+              borderColor: '#4CAF50',
               extendedProps: {
                 type: 'open',
                 completed: true,
@@ -155,11 +203,12 @@
               }
             });
           } else if (isPastDate) {
-            // 只有过去的日期没有记录才显示红色
             ev.push({ 
               title: '开❌', 
               date, 
-              color: 'red',
+              order: 1,
+              backgroundColor: '#f44336',
+              borderColor: '#f44336',
               textColor: 'white',
               extendedProps: {
                 type: 'open',
@@ -168,11 +217,14 @@
             });
           }
           
-          // 关店记录 - 放在下面
+          // 关店记录 - order: 2 确保在下面
           if (val.close) {
             ev.push({ 
               title: '关✅', 
               date,
+              order: 2,
+              backgroundColor: '#2196F3',
+              borderColor: '#2196F3',
               extendedProps: {
                 type: 'close',
                 completed: true,
@@ -181,11 +233,12 @@
               }
             });
           } else if (isPastDate) {
-            // 只有过去的日期没有记录才显示红色
             ev.push({ 
               title: '关❌', 
               date, 
-              color: 'red',
+              order: 2,
+              backgroundColor: '#f44336',
+              borderColor: '#f44336',
               textColor: 'white',
               extendedProps: {
                 type: 'close',
@@ -197,8 +250,6 @@
           return ev;
         });
         
-        console.log('生成的日历事件:', events);
-        
         if (!calendar) {
           calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
             initialView:'dayGridMonth',
@@ -209,37 +260,26 @@
               right: 'today'
             },
             locale: 'zh-cn',
+            height: 'auto',
+            eventOrder: 'order',
             eventMouseEnter: function(info) {
-              // 只为已完成的记录显示提示
               if (info.event.extendedProps.completed) {
                 const tooltip = document.createElement('div');
                 tooltip.id = 'event-tooltip';
-                tooltip.style.cssText = `
-                  position: absolute;
-                  background: rgba(0,0,0,0.8);
-                  color: white;
-                  padding: 8px 12px;
-                  border-radius: 4px;
-                  font-size: 12px;
-                  pointer-events: none;
-                  z-index: 9999;
-                  max-width: 200px;
-                  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                `;
+                tooltip.className = 'tooltip';
                 
                 const type = info.event.extendedProps.type === 'open' ? '开店' : '关店';
                 const submitter = info.event.extendedProps.submitter;
                 const submitTime = info.event.extendedProps.submitTime;
                 
                 tooltip.innerHTML = `
-                  <div><strong>${type}记录</strong></div>
+                  <div class="tooltip-title">${type}记录</div>
                   <div>提交人: ${submitter}</div>
                   <div>提交时间: ${formatTime(submitTime)}</div>
                 `;
                 
                 document.body.appendChild(tooltip);
                 
-                // 跟随鼠标位置
                 const updatePosition = (e) => {
                   tooltip.style.left = (e.pageX + 10) + 'px';
                   tooltip.style.top = (e.pageY - 10) + 'px';
@@ -260,20 +300,16 @@
             }
           });
           calendar.render();
-          console.log('日历已渲染');
         } else {
           calendar.removeAllEvents();
           events.forEach(e=>calendar.addEvent(e));
-          console.log('日历事件已更新');
         }
       } catch (error) {
         console.error('加载日历失败:', error);
-        console.error('错误堆栈:', error.stack);
-        alert('加载日历失败: ' + error.message);
+        showSnackbar('加载日历失败: ' + error.message, 'error');
       }
     }
 
-    // 页面加载完成后初始化日历
     document.addEventListener('DOMContentLoaded', () => {
       loadCalendar();
     });
