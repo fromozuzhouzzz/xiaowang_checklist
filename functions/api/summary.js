@@ -34,7 +34,7 @@ export async function onRequestGet({ query, env }) {
     const [year, monthNum] = month.split('-').map(Number);
     
     // Validate year and month
-    if (year < 2020 || year > 2050 || monthNum < 1 || monthNum > 12) {
+    if (year < 2024 || year > 2050 || monthNum < 1 || monthNum > 12) {
       return new Response('Invalid year or month', {status:400});
     }
     
