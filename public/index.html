@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>开/关店 Checklist</title>
+  <title>小汪有料开/关店工作流程</title>
   
   <!-- Material Design 3 -->
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -192,7 +192,7 @@
             const submitter = val.openSubmitter || '未知';
             const submitTime = val.openSubmitTime ? formatTime(val.openSubmitTime) : '未知时间';
             ev.push({ 
-              title: `开✅\n${submitter}\n${submitTime}`, 
+              title: `开店✅\n${submitter}\n${submitTime}`, 
               date,
               order: 1,
               backgroundColor: '#4CAF50',
@@ -206,7 +206,7 @@
             });
           } else if (isPastDate) {
             ev.push({ 
-              title: '开❌', 
+              title: '开店❌', 
               date, 
               order: 1,
               backgroundColor: '#f44336',
@@ -224,7 +224,7 @@
             const submitter = val.closeSubmitter || '未知';
             const submitTime = val.closeSubmitTime ? formatTime(val.closeSubmitTime) : '未知时间';
             ev.push({ 
-              title: `关✅\n${submitter}\n${submitTime}`, 
+              title: `关店✅\n${submitter}\n${submitTime}`, 
               date,
               order: 2,
               backgroundColor: '#2196F3',
@@ -238,7 +238,7 @@
             });
           } else if (isPastDate) {
             ev.push({ 
-              title: '关❌', 
+              title: '关店❌', 
               date, 
               order: 2,
               backgroundColor: '#f44336',
