@@ -189,8 +189,10 @@
           
           // 开店记录 - order: 1 确保在上面
           if (val.open) {
+            const submitter = val.openSubmitter || '未知';
+            const submitTime = val.openSubmitTime ? formatTime(val.openSubmitTime) : '未知时间';
             ev.push({ 
-              title: '开✅', 
+              title: `开✅\n${submitter}\n${submitTime}`, 
               date,
               order: 1,
               backgroundColor: '#4CAF50',
@@ -198,8 +200,8 @@
               extendedProps: {
                 type: 'open',
                 completed: true,
-                submitter: val.openSubmitter || '未知',
-                submitTime: val.openSubmitTime || '未知时间'
+                submitter: submitter,
+                submitTime: submitTime
               }
             });
           } else if (isPastDate) {
@@ -219,8 +221,10 @@
           
           // 关店记录 - order: 2 确保在下面
           if (val.close) {
+            const submitter = val.closeSubmitter || '未知';
+            const submitTime = val.closeSubmitTime ? formatTime(val.closeSubmitTime) : '未知时间';
             ev.push({ 
-              title: '关✅', 
+              title: `关✅\n${submitter}\n${submitTime}`, 
               date,
               order: 2,
               backgroundColor: '#2196F3',
@@ -228,8 +232,8 @@
               extendedProps: {
                 type: 'close',
                 completed: true,
-                submitter: val.closeSubmitter || '未知',
-                submitTime: val.closeSubmitTime || '未知时间'
+                submitter: submitter,
+                submitTime: submitTime
               }
             });
           } else if (isPastDate) {
@@ -262,41 +266,15 @@
             locale: 'zh-cn',
             height: 'auto',
             eventOrder: 'order',
-            eventMouseEnter: function(info) {
-              if (info.event.extendedProps.completed) {
-                const tooltip = document.createElement('div');
-                tooltip.id = 'event-tooltip';
-                tooltip.className = 'tooltip';
-                
-                const type = info.event.extendedProps.type === 'open' ? '开店' : '关店';
-                const submitter = info.event.extendedProps.submitter;
-                const submitTime = info.event.extendedProps.submitTime;
-                
-                tooltip.innerHTML = `
-                  <div class="tooltip-title">${type}记录</div>
-                  <div>提交人: ${submitter}</div>
-                  <div>提交时间: ${formatTime(submitTime)}</div>
-                `;
-                
-                document.body.appendChild(tooltip);
-                
-                const updatePosition = (e) => {
-                  tooltip.style.left = (e.pageX + 10) + 'px';
-                  tooltip.style.top = (e.pageY - 10) + 'px';
-                };
-                
-                info.el.addEventListener('mousemove', updatePosition);
-                info.el._updateTooltipPosition = updatePosition;
-              }
-            },
-            eventMouseLeave: function(info) {
-              const tooltip = document.getElementById('event-tooltip');
-              if (tooltip) {
-                tooltip.remove();
-              }
-              if (info.el._updateTooltipPosition) {
-                info.el.removeEventListener('mousemove', info.el._updateTooltipPosition);
-              }
+            eventDisplay: 'block',
+            eventTextColor: 'white',
+            eventDidMount: function(info) {
+              // 设置事件内容的样式，使多行文本正确显示
+              info.el.style.whiteSpace = 'pre-line';
+              info.el.style.fontSize = '11px';
+              info.el.style.lineHeight = '1.2';
+              info.el.style.padding = '2px 4px';
+              info.el.style.textAlign = 'center';
             }
           });
           calendar.render();
