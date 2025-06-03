@@ -20,8 +20,19 @@
   <div class="app-container">
     <!-- App Bar -->
     <header class="app-bar">
-      <span class="material-icons">store</span>
-      <h1>小汪有料开店/关店工作流程</h1>
+      <div class="app-bar-left">
+        <span class="material-icons">store</span>
+        <h1>小汪有料开店/关店工作流程</h1>
+      </div>
+      <div class="app-bar-right">
+        <div class="user-info" id="user-info">
+          <span class="material-icons">account_circle</span>
+          <span id="user-name">用户</span>
+          <button class="icon-button" id="logout-btn" title="退出登录">
+            <span class="material-icons">logout</span>
+          </button>
+        </div>
+      </div>
     </header>
 
     <!-- Main Content -->
@@ -45,8 +56,8 @@
         <h2>工作清单</h2>
         <div id="checklist"></div>
         <div id="submit-area">
-          <div class="input-group">
-            <input id="input-name" placeholder="提交人姓名" class="text-field" />
+          <div class="submit-info">
+            <span id="submitter-info">提交人：<strong id="submitter-name"></strong></span>
             <button id="btn-submit" class="primary-button">
               <span class="material-icons">check</span>
               提交
@@ -69,11 +80,78 @@
   <script type="module">
     import { OPEN_TASKS, CLOSE_TASKS } from './tasks.js';
 
-    const state = { shift: null, tasks: [] };
+    const state = { shift: null, tasks: [], user: null, token: null };
 
+    // 认证相关函数
+    async function checkAuth() {
+      const token = localStorage.getItem('authToken');
+      const userData = localStorage.getItem('userData');
+      
+      if (!token || !userData) {
+        redirectToAuth();
+        return false;
+      }
+      
+      try {
+        // 验证token是否有效
+        const response = await fetch('/api/auth', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Token invalid');
+        }
+        
+        const result = await response.json();
+        if (result.success) {
+          state.token = token;
+          state.user = result.user;
+          updateUserDisplay();
+          return true;
+        } else {
+          throw new Error('Auth failed');
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userData');
+        redirectToAuth();
+        return false;
+      }
+    }
+    
+    function redirectToAuth() {
+      window.location.href = '/auth.html';
+    }
+    
+    function updateUserDisplay() {
+      if (state.user) {
+        document.getElementById('user-name').textContent = state.user.realName;
+        document.getElementById('submitter-name').textContent = state.user.realName;
+      }
+    }
+    
+    // 退出登录
+    async function logout() {
+      try {
+        await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+      } catch (error) {
+        console.error('Logout error:', error);
+      } finally {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userData');
+        redirectToAuth();
+      }
+    }
+
+    // 事件监听器
     document.getElementById('btn-open').onclick = () => loadShift('open');
     document.getElementById('btn-close').onclick = () => loadShift('close');
     document.getElementById('btn-submit').onclick = submit;
+    document.getElementById('logout-btn').onclick = logout;
 
     function loadShift(shift) {
       state.shift = shift;
@@ -95,11 +173,12 @@
     }
 
     async function submit() {
-      const name = document.getElementById('input-name').value.trim();
-      if (!name) {
-        showSnackbar('请填写提交人姓名', 'warning');
+      if (!state.user || !state.token) {
+        showSnackbar('请先登录', 'warning');
+        redirectToAuth();
         return;
       }
+      
       const checked = Array.from(document.querySelectorAll('#checklist input:checked')).map(el => Number(el.value));
       if (checked.length !== state.tasks.length) {
         showSnackbar('仍有项目未勾选', 'warning');
@@ -109,24 +188,32 @@
       const payload = {
         date: new Date().toISOString().slice(0,10),
         shift: state.shift,
-        completed: checked,
-        by: name
+        completed: checked
       };
       
       try {
         const res = await fetch('/api/submit', {
           method:'POST',
-          headers:{'Content-Type':'application/json'},
+          headers:{
+            'Content-Type':'application/json',
+            'Authorization': `Bearer ${state.token}`
+          },
           body: JSON.stringify(payload)
         });
-        if (res.ok) {
+        
+        const result = await res.json();
+        
+        if (res.ok && result.success) {
           showSnackbar('提交成功！', 'success');
           loadCalendar();
           document.getElementById('checklist-container').style.display='none';
-          document.getElementById('input-name').value = '';
         } else {
-          const errorText = await res.text();
-          showSnackbar('提交失败: ' + errorText, 'error');
+          if (res.status === 401) {
+            showSnackbar('登录已过期，请重新登录', 'error');
+            redirectToAuth();
+          } else {
+            showSnackbar(result.error || '提交失败', 'error');
+          }
         }
       } catch (error) {
         console.error('提交错误:', error);
@@ -288,8 +375,12 @@
       }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      loadCalendar();
+    // 页面初始化
+    document.addEventListener('DOMContentLoaded', async () => {
+      const isAuthenticated = await checkAuth();
+      if (isAuthenticated) {
+        loadCalendar();
+      }
     });
   </script>
 </body>

@@ -70,11 +70,22 @@ body {
   padding: var(--spacing-md) var(--spacing-lg);
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
+  justify-content: space-between;
   box-shadow: var(--md-elevation-2);
   position: sticky;
   top: 0;
   z-index: 100;
+}
+
+.app-bar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.app-bar-right {
+  display: flex;
+  align-items: center;
 }
 
 .app-bar h1 {
@@ -85,6 +96,39 @@ body {
 
 .app-bar .material-icons {
   font-size: 24px;
+}
+
+/* User Info */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--md-on-primary);
+}
+
+.user-info span:not(.material-icons) {
+  font-weight: 500;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  color: var(--md-on-primary);
+  cursor: pointer;
+  padding: var(--spacing-sm);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.icon-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.icon-button .material-icons {
+  font-size: 20px;
 }
 
 /* Main Content */
@@ -532,4 +576,26 @@ body {
   .snackbar.show {
     transform: translateY(0);
   }
+}
+
+/* Submit Info */
+.submit-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background-color: var(--md-surface-variant);
+  border-radius: var(--spacing-sm);
+}
+
+#submitter-info {
+  color: var(--md-on-surface-variant);
+  font-size: 0.875rem;
+}
+
+#submitter-info strong {
+  color: var(--md-on-surface);
+  font-weight: 500;
 } 
