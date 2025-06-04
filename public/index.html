@@ -86,6 +86,20 @@
           <span class="material-icons">calendar_month</span>
           日历记录
         </h2>
+        
+        <!-- 日历店铺选择器 -->
+        <div class="calendar-store-selector">
+          <label for="calendar-store-select" class="store-label">
+            <span class="material-icons">store</span>
+            筛选店铺：
+          </label>
+          <select id="calendar-store-select" class="store-dropdown">
+            <option value="">全部店铺</option>
+            <option value="store_331">331店</option>
+            <option value="store_bbg">步步高店</option>
+          </select>
+        </div>
+        
         <div id="calendar"></div>
       </div>
     </main>
@@ -301,6 +315,8 @@
 
     /* -------- Calendar -------- */
     let calendar;
+    let calendarData = {};
+    let selectedCalendarStore = '';
     
     // 格式化时间显示
     function formatTime(isoString) {
@@ -320,6 +336,12 @@
       }
     }
     
+    // 添加日历店铺选择器事件监听
+    document.getElementById('calendar-store-select').addEventListener('change', (e) => {
+      selectedCalendarStore = e.target.value;
+      renderCalendarEvents();
+    });
+    
     async function loadCalendar() {
       try {
         const month = new Date().toISOString().slice(0,7);
@@ -330,86 +352,13 @@
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        const data = await response.json();
-        console.log('获取到的日历数据:', data);
-        
-        const today = new Date().toISOString().slice(0, 10);
-        
-        const events = Object.entries(data).flatMap(([date, val]) => {
-          const ev = [];
-          const isPastDate = date < today;
-          
-          // 开店记录 - order: 1 确保在上面
-          if (val.open) {
-            const submitter = val.openSubmitter || '未知';
-            const submitTime = val.openSubmitTime ? formatTime(val.openSubmitTime) : '未知时间';
-            ev.push({ 
-              title: `开店✅\n${submitter}\n${submitTime}`, 
-              date,
-              order: 1,
-              backgroundColor: '#4CAF50',
-              borderColor: '#4CAF50',
-              extendedProps: {
-                type: 'open',
-                completed: true,
-                submitter: submitter,
-                submitTime: submitTime
-              }
-            });
-          } else if (isPastDate) {
-            ev.push({ 
-              title: '开店❌', 
-              date, 
-              order: 1,
-              backgroundColor: '#f44336',
-              borderColor: '#f44336',
-              textColor: 'white',
-              extendedProps: {
-                type: 'open',
-                completed: false
-              }
-            });
-          }
-          
-          // 关店记录 - order: 2 确保在下面
-          if (val.close) {
-            const submitter = val.closeSubmitter || '未知';
-            const submitTime = val.closeSubmitTime ? formatTime(val.closeSubmitTime) : '未知时间';
-            ev.push({ 
-              title: `关店✅\n${submitter}\n${submitTime}`, 
-              date,
-              order: 2,
-              backgroundColor: '#2196F3',
-              borderColor: '#2196F3',
-              extendedProps: {
-                type: 'close',
-                completed: true,
-                submitter: submitter,
-                submitTime: submitTime
-              }
-            });
-          } else if (isPastDate) {
-            ev.push({ 
-              title: '关店❌', 
-              date, 
-              order: 2,
-              backgroundColor: '#f44336',
-              borderColor: '#f44336',
-              textColor: 'white',
-              extendedProps: {
-                type: 'close',
-                completed: false
-              }
-            });
-          }
-          
-          return ev;
-        });
+        calendarData = await response.json();
+        console.log('获取到的日历数据:', calendarData);
         
         if (!calendar) {
           calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
             initialView:'dayGridMonth',
-            events,
+            events: [],
             headerToolbar: {
               left: 'prev,next',
               center: 'title',
@@ -430,14 +379,129 @@
             }
           });
           calendar.render();
-        } else {
-          calendar.removeAllEvents();
-          events.forEach(e=>calendar.addEvent(e));
         }
+        
+        renderCalendarEvents();
       } catch (error) {
         console.error('加载日历失败:', error);
         showSnackbar('加载日历失败: ' + error.message, 'error');
       }
+    }
+    
+    function renderCalendarEvents() {
+      if (!calendar || !calendarData) return;
+      
+      const today = new Date().toISOString().slice(0, 10);
+      
+      const events = Object.entries(calendarData).flatMap(([date, val]) => {
+        const ev = [];
+        const isPastDate = date < today;
+        
+        // 根据选择的店铺筛选数据
+        let openData, closeData;
+        if (selectedCalendarStore) {
+          // 显示特定店铺的数据
+          const storeData = val.stores && val.stores[selectedCalendarStore];
+          if (storeData) {
+            openData = {
+              completed: storeData.open,
+              submitter: storeData.openSubmitter,
+              submitTime: storeData.openSubmitTime
+            };
+            closeData = {
+              completed: storeData.close,
+              submitter: storeData.closeSubmitter,
+              submitTime: storeData.closeSubmitTime
+            };
+          } else {
+            openData = { completed: false };
+            closeData = { completed: false };
+          }
+        } else {
+          // 显示全部店铺汇总数据
+          openData = {
+            completed: val.open,
+            submitter: val.openSubmitter,
+            submitTime: val.openSubmitTime
+          };
+          closeData = {
+            completed: val.close,
+            submitter: val.closeSubmitter,
+            submitTime: val.closeSubmitTime
+          };
+        }
+        
+        // 开店记录 - order: 1 确保在上面
+        if (openData.completed) {
+          const submitter = openData.submitter || '未知';
+          const submitTime = openData.submitTime ? formatTime(openData.submitTime) : '未知时间';
+          const storeLabel = selectedCalendarStore ? '' : '（多店）';
+          ev.push({ 
+            title: `开店✅${storeLabel}\n${submitter}\n${submitTime}`, 
+            date,
+            order: 1,
+            backgroundColor: '#4CAF50',
+            borderColor: '#4CAF50',
+            extendedProps: {
+              type: 'open',
+              completed: true,
+              submitter: submitter,
+              submitTime: submitTime
+            }
+          });
+        } else if (isPastDate) {
+          ev.push({ 
+            title: '开店❌', 
+            date, 
+            order: 1,
+            backgroundColor: '#f44336',
+            borderColor: '#f44336',
+            textColor: 'white',
+            extendedProps: {
+              type: 'open',
+              completed: false
+            }
+          });
+        }
+        
+        // 关店记录 - order: 2 确保在下面
+        if (closeData.completed) {
+          const submitter = closeData.submitter || '未知';
+          const submitTime = closeData.submitTime ? formatTime(closeData.submitTime) : '未知时间';
+          const storeLabel = selectedCalendarStore ? '' : '（多店）';
+          ev.push({ 
+            title: `关店✅${storeLabel}\n${submitter}\n${submitTime}`, 
+            date,
+            order: 2,
+            backgroundColor: '#2196F3',
+            borderColor: '#2196F3',
+            extendedProps: {
+              type: 'close',
+              completed: true,
+              submitter: submitter,
+              submitTime: submitTime
+            }
+          });
+        } else if (isPastDate) {
+          ev.push({ 
+            title: '关店❌', 
+            date, 
+            order: 2,
+            backgroundColor: '#f44336',
+            borderColor: '#f44336',
+            textColor: 'white',
+            extendedProps: {
+              type: 'close',
+              completed: false
+            }
+          });
+        }
+        
+        return ev;
+      });
+      
+      calendar.removeAllEvents();
+      events.forEach(e => calendar.addEvent(e));
     }
 
     // 页面初始化

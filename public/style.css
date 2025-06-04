@@ -330,6 +330,50 @@ body {
   color: var(--md-primary);
 }
 
+/* Calendar Store Selector */
+.calendar-store-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background-color: var(--md-surface-variant);
+  border-radius: var(--spacing-sm);
+  border: 1px solid var(--md-outline-variant);
+}
+
+.calendar-store-selector .store-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: 500;
+  color: var(--md-on-surface);
+  white-space: nowrap;
+}
+
+.calendar-store-selector .store-label .material-icons {
+  color: var(--md-primary);
+  font-size: 20px;
+}
+
+.calendar-store-selector .store-dropdown {
+  flex: 1;
+  padding: var(--spacing-md);
+  border: 1px solid var(--md-outline);
+  border-radius: var(--spacing-sm);
+  font-size: 1rem;
+  background-color: var(--md-surface);
+  color: var(--md-on-surface);
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.calendar-store-selector .store-dropdown:focus {
+  outline: none;
+  border-color: var(--md-primary);
+  border-width: 2px;
+}
+
 /* Calendar Customization */
 #calendar {
   max-width: 100%;
@@ -743,4 +787,15 @@ body {
 
 .category-tasks .checkbox-item:hover {
   background-color: var(--md-surface-variant);
+}
+
+/* Calendar Store Selector Mobile */
+.calendar-store-selector {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-sm);
+}
+
+.calendar-store-selector .store-label {
+  justify-content: center;
 } 
