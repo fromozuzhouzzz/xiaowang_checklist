@@ -54,6 +54,20 @@
       <!-- Checklist -->
       <div id="checklist-container" class="surface" style="display:none;">
         <h2>工作清单</h2>
+        
+        <!-- 店铺选择 -->
+        <div class="store-selector">
+          <label for="store-select" class="store-label">
+            <span class="material-icons">store</span>
+            选择店铺：
+          </label>
+          <select id="store-select" class="store-dropdown" required>
+            <option value="">请选择店铺</option>
+            <option value="store_331">331店</option>
+            <option value="store_bbg">步步高店</option>
+          </select>
+        </div>
+        
         <div id="checklist"></div>
         <div id="submit-area">
           <div class="submit-info">
@@ -78,7 +92,7 @@
   </div>
 
   <script type="module">
-    import { OPEN_TASKS, CLOSE_TASKS } from './tasks.js';
+    import { OPEN_TASKS, CLOSE_TASKS, STORES } from './tasks.js';
 
     const state = { shift: null, tasks: [], user: null, token: null };
 
@@ -159,17 +173,57 @@
       renderChecklist();
       document.getElementById('checklist-container').style.display = 'block';
       document.getElementById('checklist-container').scrollIntoView({ behavior: 'smooth' });
+      
+      // 重置店铺选择
+      document.getElementById('store-select').value = '';
     }
 
     function renderChecklist() {
       const box = document.getElementById('checklist');
-      box.innerHTML = state.tasks.map(t => `
-        <label class="checkbox-item">
-          <input type="checkbox" value="${t.id}" />
-          <span class="checkmark"></span>
-          <span class="checkbox-text">${t.title}</span>
-        </label>
+      
+      // 生成两级菜单结构的HTML
+      const html = state.tasks.map(category => `
+        <div class="category-section">
+          <h3 class="category-title">
+            <span class="material-icons">keyboard_arrow_right</span>
+            ${category.category}
+          </h3>
+          <div class="category-tasks">
+            ${category.tasks.map(task => `
+              <label class="checkbox-item">
+                <input type="checkbox" value="${task.id}" />
+                <span class="checkmark"></span>
+                <span class="checkbox-text">${task.title}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
       `).join('');
+      
+      box.innerHTML = html;
+      
+      // 添加分类标题点击事件，实现折叠/展开功能
+      const categoryTitles = box.querySelectorAll('.category-title');
+      categoryTitles.forEach(title => {
+        title.addEventListener('click', () => {
+          const tasks = title.nextElementSibling;
+          const icon = title.querySelector('.material-icons');
+          
+          if (tasks.style.display === 'none') {
+            tasks.style.display = 'block';
+            icon.textContent = 'keyboard_arrow_down';
+            title.classList.remove('collapsed');
+          } else {
+            tasks.style.display = 'none';
+            icon.textContent = 'keyboard_arrow_right';
+            title.classList.add('collapsed');
+          }
+        });
+        
+        // 默认展开状态
+        const icon = title.querySelector('.material-icons');
+        icon.textContent = 'keyboard_arrow_down';
+      });
     }
 
     async function submit() {
@@ -179,8 +233,18 @@
         return;
       }
       
+      // 检查店铺选择
+      const selectedStore = document.getElementById('store-select').value;
+      if (!selectedStore) {
+        showSnackbar('请选择店铺', 'warning');
+        return;
+      }
+      
+      // 计算总任务数
+      const totalTasks = state.tasks.reduce((sum, category) => sum + category.tasks.length, 0);
+      
       const checked = Array.from(document.querySelectorAll('#checklist input:checked')).map(el => Number(el.value));
-      if (checked.length !== state.tasks.length) {
+      if (checked.length !== totalTasks) {
         showSnackbar('仍有项目未勾选', 'warning');
         return;
       }
@@ -188,7 +252,8 @@
       const payload = {
         date: new Date().toISOString().slice(0,10),
         shift: state.shift,
-        completed: checked
+        completed: checked,
+        store: selectedStore
       };
       
       try {

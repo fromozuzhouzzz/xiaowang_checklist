@@ -24,26 +24,15 @@ export async function onRequestGet({ request, env }) {
       return new Response('Invalid month format. Use YYYY-MM', {status:400});
     }
     
-    // Get task counts dynamically
-    let openTaskCount = 3;
-    let closeTaskCount = 3;
-    
-    try {
-      console.log('Fetching task counts from KV...');
-      const openTasks = await env.KV.get('tasks:open', { type:'json' });
-      const closeTasks = await env.KV.get('tasks:close', { type:'json' });
-      console.log('Open tasks:', openTasks);
-      console.log('Close tasks:', closeTasks);
-      
-      if (openTasks && Array.isArray(openTasks)) openTaskCount = openTasks.length;
-      if (closeTasks && Array.isArray(closeTasks)) closeTaskCount = closeTasks.length;
-    } catch (e) {
-      console.log('Failed to get task counts, using default:', e);
-    }
+    // Calculate task counts based on new two-level structure
+    // 开店任务总数：7个分类，总共26个任务
+    const openTaskCount = 26; // 5+4+6+7+1+4+3
+    // 关店任务总数：5个分类，总共18个任务  
+    const closeTaskCount = 18; // 5+5+4+3+5
     
     console.log('Task counts - open:', openTaskCount, 'close:', closeTaskCount);
     
-    // Get all records for this month
+    // Get all records for this month (including all stores)
     console.log('Listing KV records for prefix:', 'log:'+month);
     const list = await env.KV.list({ prefix:'log:'+month });
     console.log('KV list result:', list);
@@ -63,12 +52,16 @@ export async function onRequestGet({ request, env }) {
     const daysInMonth = new Date(year, monthNum, 0).getDate();
     console.log('Days in month:', daysInMonth);
     
-    // Initialize all dates for the month
+    // Initialize all dates for the month with store-specific data
     for (let day = 1; day <= daysInMonth; day++) {
       const date = `${month}-${day.toString().padStart(2, '0')}`;
       res[date] = {
         open: false,
-        close: false
+        close: false,
+        stores: {
+          store_331: { open: false, close: false },
+          store_bbg: { open: false, close: false }
+        }
       };
     }
     
@@ -79,18 +72,59 @@ export async function onRequestGet({ request, env }) {
       console.log('Processing', list.keys.length, 'records');
       for (const { name } of list.keys) {
         try {
-          const date = name.split(':')[1];
-          if (res[date]) {
-            const log = await env.KV.get(name, {type:'json'});
-            if (log) {
-              res[date] = {
-                open: !!(log.open && log.open.completed && log.open.completed.length === openTaskCount),
-                close: !!(log.close && log.close.completed && log.close.completed.length === closeTaskCount),
-                openSubmitter: log.open ? log.open.by : null,
-                openSubmitTime: log.open ? (log.open.submitTime || '未知时间') : null,
-                closeSubmitter: log.close ? log.close.by : null,
-                closeSubmitTime: log.close ? (log.close.submitTime || '未知时间') : null
-              };
+          // New key format: log:YYYY-MM-DD:store_id
+          const parts = name.split(':');
+          if (parts.length >= 3) {
+            const date = parts[1];
+            const store = parts[2];
+            
+            if (res[date]) {
+              const log = await env.KV.get(name, {type:'json'});
+              if (log) {
+                // Update store-specific data
+                if (res[date].stores[store]) {
+                  res[date].stores[store] = {
+                    open: !!(log.open && log.open.completed && log.open.completed.length === openTaskCount),
+                    close: !!(log.close && log.close.completed && log.close.completed.length === closeTaskCount),
+                    openSubmitter: log.open ? log.open.by : null,
+                    openSubmitTime: log.open ? (log.open.submitTime || '未知时间') : null,
+                    closeSubmitter: log.close ? log.close.by : null,
+                    closeSubmitTime: log.close ? (log.close.submitTime || '未知时间') : null
+                  };
+                }
+                
+                // Update overall date status (true if ANY store completed)
+                const allStores = Object.values(res[date].stores);
+                res[date].open = allStores.some(s => s.open);
+                res[date].close = allStores.some(s => s.close);
+                
+                // Set submitter info from the first available store
+                if (!res[date].openSubmitter && log.open) {
+                  res[date].openSubmitter = log.open.by;
+                  res[date].openSubmitTime = log.open.submitTime || '未知时间';
+                }
+                if (!res[date].closeSubmitter && log.close) {
+                  res[date].closeSubmitter = log.close.by;
+                  res[date].closeSubmitTime = log.close.submitTime || '未知时间';
+                }
+              }
+            }
+          } else {
+            // Handle legacy format (without store info)
+            const date = parts[1];
+            if (res[date]) {
+              const log = await env.KV.get(name, {type:'json'});
+              if (log) {
+                res[date] = {
+                  open: !!(log.open && log.open.completed && log.open.completed.length >= 3),
+                  close: !!(log.close && log.close.completed && log.close.completed.length >= 3),
+                  openSubmitter: log.open ? log.open.by : null,
+                  openSubmitTime: log.open ? (log.open.submitTime || '未知时间') : null,
+                  closeSubmitter: log.close ? log.close.by : null,
+                  closeSubmitTime: log.close ? (log.close.submitTime || '未知时间') : null,
+                  stores: res[date].stores
+                };
+              }
             }
           }
         } catch (e) {

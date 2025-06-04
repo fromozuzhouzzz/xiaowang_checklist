@@ -22,27 +22,36 @@ export async function onRequestPost({ request, env }) {
     }
     
     const session = JSON.parse(sessionData);
-    const { date, shift, completed } = await request.json();
+    const { date, shift, completed, store } = await request.json();
+    
+    // 验证必需字段
+    if (!store) {
+      return new Response(JSON.stringify({ error: '请选择店铺' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
     
     // 使用会话中的真实姓名，而不是客户端提供的姓名
     const by = session.realName;
     
-    console.log('Received submission:', { date, shift, completed, by, username: session.username });
+    console.log('Received submission:', { date, shift, completed, by, store, username: session.username });
     
     // Add current timestamp
     const submitTime = new Date().toISOString();
     console.log('Submit time:', submitTime);
     
-    const key = `log:${date}`;
+    const key = `log:${date}:${store}`;  // 在key中包含店铺信息
     
     // Get existing log or create new one
     let log = await env.KV.get(key, { type: 'json' }) || {};
     
-    // Update the specific shift data with submitter and time info
+    // Update the specific shift data with submitter, time and store info
     log[shift] = { 
       completed, 
       by,
       submitTime,
+      store,
       username: session.username  // 记录用户名用于追踪
     };
     
