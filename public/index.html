@@ -396,6 +396,7 @@
       const events = Object.entries(calendarData).flatMap(([date, val]) => {
         const ev = [];
         const isPastDate = date < today;
+        const isToday = date === today;
         
         // 根据选择的店铺筛选数据
         let openData, closeData;
@@ -450,6 +451,7 @@
             }
           });
         } else if (isPastDate) {
+          // 只有过去的日期才显示未完成的红色标记
           ev.push({ 
             title: '开店❌', 
             date, 
@@ -483,6 +485,7 @@
             }
           });
         } else if (isPastDate) {
+          // 只有过去的日期才显示未完成的红色标记
           ev.push({ 
             title: '关店❌', 
             date, 

@@ -25,10 +25,10 @@ export async function onRequestGet({ request, env }) {
     }
     
     // Calculate task counts based on new two-level structure
-    // 开店任务总数：7个分类，总共26个任务
-    const openTaskCount = 26; // 5+4+6+7+1+4+3
-    // 关店任务总数：5个分类，总共18个任务  
-    const closeTaskCount = 18; // 5+5+4+3+5
+    // 开店任务总数：7个分类，总共30个任务 (5+4+6+7+1+4+3)
+    const openTaskCount = 30; 
+    // 关店任务总数：5个分类，总共21个任务 (5+5+4+3+4)
+    const closeTaskCount = 21;
     
     console.log('Task counts - open:', openTaskCount, 'close:', closeTaskCount);
     
