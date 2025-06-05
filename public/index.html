@@ -434,11 +434,30 @@
         
         // 开店记录 - order: 1 确保在上面
         if (openData.completed) {
-          const submitter = openData.submitter || '未知';
-          const submitTime = openData.submitTime ? formatTime(openData.submitTime) : '未知时间';
-          const storeLabel = selectedCalendarStore ? '' : '（多店）';
+          let title;
+          if (selectedCalendarStore) {
+            // 特定店铺模式：显示提交人和时间
+            const submitter = openData.submitter || '未知';
+            const submitTime = openData.submitTime ? formatTime(openData.submitTime) : '未知时间';
+            title = `开店✅\n${submitter}\n${submitTime}`;
+          } else {
+            // 全部店铺模式：显示有记录的店铺名称
+            const storeNames = [];
+            if (val.stores) {
+              Object.entries(val.stores).forEach(([storeId, storeData]) => {
+                if (storeData.open) {
+                  const storeName = storeId === 'store_331' ? '331店' : 
+                                   storeId === 'store_bbg' ? '步步高店' : storeId;
+                  storeNames.push(storeName);
+                }
+              });
+            }
+            const storeLabel = storeNames.length > 0 ? `（${storeNames.join('、')}）` : '';
+            title = `开店✅${storeLabel}`;
+          }
+          
           ev.push({ 
-            title: `开店✅${storeLabel}\n${submitter}\n${submitTime}`, 
+            title, 
             date,
             order: 1,
             backgroundColor: '#4CAF50',
@@ -446,8 +465,8 @@
             extendedProps: {
               type: 'open',
               completed: true,
-              submitter: submitter,
-              submitTime: submitTime
+              submitter: openData.submitter,
+              submitTime: openData.submitTime
             }
           });
         } else if (isPastDate) {
@@ -468,11 +487,30 @@
         
         // 关店记录 - order: 2 确保在下面
         if (closeData.completed) {
-          const submitter = closeData.submitter || '未知';
-          const submitTime = closeData.submitTime ? formatTime(closeData.submitTime) : '未知时间';
-          const storeLabel = selectedCalendarStore ? '' : '（多店）';
+          let title;
+          if (selectedCalendarStore) {
+            // 特定店铺模式：显示提交人和时间
+            const submitter = closeData.submitter || '未知';
+            const submitTime = closeData.submitTime ? formatTime(closeData.submitTime) : '未知时间';
+            title = `关店✅\n${submitter}\n${submitTime}`;
+          } else {
+            // 全部店铺模式：显示有记录的店铺名称
+            const storeNames = [];
+            if (val.stores) {
+              Object.entries(val.stores).forEach(([storeId, storeData]) => {
+                if (storeData.close) {
+                  const storeName = storeId === 'store_331' ? '331店' : 
+                                   storeId === 'store_bbg' ? '步步高店' : storeId;
+                  storeNames.push(storeName);
+                }
+              });
+            }
+            const storeLabel = storeNames.length > 0 ? `（${storeNames.join('、')}）` : '';
+            title = `关店✅${storeLabel}`;
+          }
+          
           ev.push({ 
-            title: `关店✅${storeLabel}\n${submitter}\n${submitTime}`, 
+            title, 
             date,
             order: 2,
             backgroundColor: '#2196F3',
@@ -480,8 +518,8 @@
             extendedProps: {
               type: 'close',
               completed: true,
-              submitter: submitter,
-              submitTime: submitTime
+              submitter: closeData.submitter,
+              submitTime: closeData.submitTime
             }
           });
         } else if (isPastDate) {
